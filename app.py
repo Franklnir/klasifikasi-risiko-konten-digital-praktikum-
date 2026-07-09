@@ -316,83 +316,91 @@ ada — **bukan** duplikasi baris.  Ini adalah metode augmentasi yang
                 """
             )
 
-            target_size = st.slider(
-                "Target jumlah baris per kelas",
-                min_value=500,
-                max_value=3000,
-                value=1700,
-                step=100,
-                help="SMOTE akan membuat sampel sintetis hingga setiap kelas "
-                     "memiliki jumlah ini. Total ≈ 3 × nilai ini.",
-            )
-
             X_pre = df_encoded.drop(columns=["Tingkat Risiko"])
             y_pre = df_encoded["Tingkat Risiko"]
             feature_names = X_pre.columns.tolist()
 
-            k_neighbors = min(5, min(y_pre.value_counts().values) - 1)
-            k_neighbors = max(1, k_neighbors)
+            max_class_count = int(y_pre.value_counts().max())
+            min_target = max(500, max_class_count)
 
-            smote = SMOTE(
-                sampling_strategy={cls: target_size for cls in y_pre.unique()},
-                k_neighbors=k_neighbors,
-                random_state=42,
-            )
+            use_smote = st.checkbox("Gunakan SMOTE untuk menyeimbangkan data?", value=(len(df_encoded) < 5000))
 
-            try:
-                X_res, y_res = smote.fit_resample(X_pre, y_pre)
-                df_smote = pd.DataFrame(X_res, columns=feature_names)
-                df_smote["Tingkat Risiko"] = y_res
-
-                st.success(
-                    f"SMOTE berhasil! Data augmentasi: **{len(df_smote):,}** baris "
-                    f"(dari {len(df_encoded)} baris asli).",
-                    icon=":material/check_circle:",
+            if use_smote:
+                target_size = st.slider(
+                    "Target jumlah baris per kelas (SMOTE)",
+                    min_value=min_target,
+                    max_value=max(min_target * 2, 100000),
+                    value=min_target,
+                    step=100,
+                    help="Target minimal tidak boleh kurang dari jumlah data kelas terbanyak saat ini.",
                 )
 
-                if len(df_smote) >= 5000:
+                k_neighbors = min(5, min(y_pre.value_counts().values) - 1)
+                k_neighbors = max(1, k_neighbors)
+
+                smote = SMOTE(
+                    sampling_strategy={cls: target_size for cls in y_pre.unique()},
+                    k_neighbors=k_neighbors,
+                    random_state=42,
+                )
+
+                try:
+                    X_res, y_res = smote.fit_resample(X_pre, y_pre)
+                    df_smote = pd.DataFrame(X_res, columns=feature_names)
+                    df_smote["Tingkat Risiko"] = y_res
+
                     st.success(
-                        f"**{len(df_smote):,}** ≥ 5.000 — Kriteria Sangat Baik terpenuhi!",
+                        f"SMOTE berhasil! Data augmentasi: **{len(df_smote):,}** baris "
+                        f"(dari {len(df_encoded)} baris asli).",
                         icon=":material/check_circle:",
                     )
-                else:
-                    st.info(
-                        f"Total {len(df_smote):,} baris. Naikkan slider di atas "
-                        f"untuk mencapai ≥ 5.000 baris.",
-                        icon=":material/info:",
-                    )
 
-                # Distribusi setelah SMOTE
-                counts_after = df_smote["Tingkat Risiko"].value_counts().reset_index()
-                counts_after.columns = ["Tingkat Risiko", "Jumlah"]
-                # Map encoded labels back
-                if "Tingkat Risiko" in le_dict:
-                    le_risk = le_dict["Tingkat Risiko"]
-                    counts_after["Label"] = le_risk.inverse_transform(
-                        counts_after["Tingkat Risiko"].astype(int)
-                    )
-                else:
-                    counts_after["Label"] = counts_after["Tingkat Risiko"].astype(str)
+                    if len(df_smote) >= 5000:
+                        st.success(
+                            f"**{len(df_smote):,}** ≥ 5.000 — Kriteria Sangat Baik terpenuhi!",
+                            icon=":material/check_circle:",
+                        )
+                    else:
+                        st.info(
+                            f"Total {len(df_smote):,} baris. Naikkan slider di atas "
+                            f"untuk mencapai ≥ 5.000 baris.",
+                            icon=":material/info:",
+                        )
 
-                chart_after = (
-                    alt.Chart(counts_after)
-                    .mark_bar(cornerRadiusTopLeft=6, cornerRadiusTopRight=6)
-                    .encode(
-                        x=alt.X("Label:N", title="Tingkat Risiko"),
-                        y=alt.Y("Jumlah:Q"),
-                        color=alt.Color(
-                            "Label:N",
-                            scale=alt.Scale(range=["#34D399", "#FBBF24", "#F87171"]),
-                        ),
-                        tooltip=["Label:N", "Jumlah:Q"],
-                    )
-                    .properties(height=300, title="Distribusi kelas setelah SMOTE")
-                )
-                st.altair_chart(chart_after)
+                    # Distribusi setelah SMOTE
+                    counts_after = df_smote["Tingkat Risiko"].value_counts().reset_index()
+                    counts_after.columns = ["Tingkat Risiko", "Jumlah"]
+                    
+                    if "Tingkat Risiko" in le_dict:
+                        counts_after["Label"] = le_dict["Tingkat Risiko"].inverse_transform(counts_after["Tingkat Risiko"].astype(int))
+                    else:
+                        counts_after["Label"] = counts_after["Tingkat Risiko"].astype(str)
 
-            except Exception as e:
-                st.error(f"SMOTE gagal: {e}", icon=":material/error:")
+                    chart_after = (
+                        alt.Chart(counts_after)
+                        .mark_bar(cornerRadiusTopLeft=6, cornerRadiusTopRight=6)
+                        .encode(
+                            x=alt.X("Label:N", title="Tingkat Risiko"),
+                            y=alt.Y("Jumlah:Q"),
+                            color=alt.Color(
+                                "Label:N",
+                                scale=alt.Scale(range=["#34D399", "#FBBF24", "#F87171"]),
+                            ),
+                            tooltip=["Label:N", "Jumlah:Q"],
+                        )
+                        .properties(height=300, title="Distribusi kelas setelah SMOTE")
+                    )
+                    st.altair_chart(chart_after)
+
+                except Exception as e:
+                    st.error(f"SMOTE gagal: {e}", icon=":material/error:")
+                    df_smote = df_encoded
+            else:
                 df_smote = df_encoded
+                st.info(f"Dataset Anda memiliki **{len(df_smote):,}** baris. SMOTE dimatikan secara default.", icon=":material/info:")
+                
+                if len(df_smote) >= 5000:
+                    st.success("Karena dataset ≥ 5.000 baris, kriteria Sangat Baik sudah terpenuhi tanpa SMOTE!", icon=":material/check_circle:")
 
         # --- Simpan -------------------------------------------------------
         if st.button("Simpan hasil preprocessing", icon=":material/save:", type="primary"):
