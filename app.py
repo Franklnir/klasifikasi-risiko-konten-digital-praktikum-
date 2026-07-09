@@ -36,11 +36,11 @@ st.session_state.setdefault("smote_done", False)
 # Helper functions
 # ---------------------------------------------------------------------------
 RISK_COLUMNS_KEYWORDS = [
-    "sleep", "anxiety", "depression", "distraction", "mood", "self-esteem",
-    "self_esteem", "scale",
+    "anxiety", "depression", "distraction", "mood", "stress",
+    "dropout", "self-esteem", "self_esteem"
 ]
 
-COLUMNS_TO_DROP = ["Timestamp", "Column 19"]
+COLUMNS_TO_DROP = ["Timestamp", "Column 19", "student_id"]
 
 
 def clean_numeric(series: pd.Series) -> pd.Series:
