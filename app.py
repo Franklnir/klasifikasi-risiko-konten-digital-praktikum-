@@ -463,8 +463,8 @@ elif "Modeling" in menu:
         )
 
         with st.container(horizontal=True):
-            st.metric("Data train", f"{X_train.shape[0]:,} baris")
-            st.metric("Data test", f"{X_test.shape[0]:,} baris")
+            st.metric("Data latih (Train)", f"{X_train.shape[0]:,} baris")
+            st.metric("Data uji (Test)", f"{X_test.shape[0]:,} baris")
             st.metric("Total data", f"{len(df):,} baris")
 
         # --- Train ---------------------------------------------------------
